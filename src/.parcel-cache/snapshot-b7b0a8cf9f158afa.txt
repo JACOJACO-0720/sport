@@ -1,0 +1,36 @@
+35
+49F:\dataset\src\facetoward\node_modules\@mediapipe133746123332715493 1
+33F:\dataset\src\20217123-wbt.ipynb133746086309044207 0
+23F:\dataset\src\klay.png133745612672665245 0
+27F:\dataset\src\package.json133746123338658758 0
+30F:\dataset\src\jalen green.png133745611980584094 0
+25F:\dataset\src\facetoward133746183167232459 1
+78F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh.binarypb133746123334216225 0
+24F:\dataset\src\README.MD133746123269874153 0
+48F:\dataset\src\facetoward\dist\index.5892d419.js133746177965637286 0
+30F:\dataset\src\facetoward.html133746121853632000 0
+32F:\dataset\src\package-lock.json133746163079628709 0
+41F:\dataset\src\facetoward\dist\index.html133746183202427588 0
+24F:\dataset\src\test.html133746104885480900 0
+45F:\dataset\src\фад╩╫ьм╪ 2024-10-27 235531.png133745613537949537 0
+72F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh.js133746123336297026 0
+36F:\dataset\src\facetoward\index.html133746183199256280 0
+38F:\dataset\src\facetoward\node_modules133746123338688737 1
+57F:\dataset\src\facetoward\node_modules\.package-lock.json133746163079648759 0
+59F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh133746123336967069 1
+97F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_packed_assets.data133746123336087446 0
+102F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_packed_assets_loader.js133746123336127459 0
+97F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_simd_wasm_bin.data133746123336097444 0
+95F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_simd_wasm_bin.js133746123336211257 0
+97F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_simd_wasm_bin.wasm133746123336957077 0
+90F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_wasm_bin.js133746123336277039 0
+92F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\face_mesh_solution_wasm_bin.wasm133746123338572935 0
+70F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\index.d.ts133746123336317023 0
+72F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\package.json133746123336297026 0
+69F:\dataset\src\facetoward\node_modules\@mediapipe\face_mesh\README.md133746123336307027 0
+57F:\dataset\src\facetoward\dist\facetoward.85a20ebd.js.map133746183201683766 0
+30F:\dataset\src\facetoward\dist133746183202427588 1
+48F:\dataset\src\facetoward\dist\index.adb055ec.js133746172511137234 0
+52F:\dataset\src\facetoward\dist\index.adb055ec.js.map133746172511174036 0
+52F:\dataset\src\facetoward\dist\index.5892d419.js.map133746177965655007 0
+53F:\dataset\src\facetoward\dist\facetoward.85a20ebd.js133746183201654817 0

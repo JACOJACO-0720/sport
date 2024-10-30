@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pose Detection on Image</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+</head>
+<body>
+  <h1>Pose Detection on Image</h1>
+  <input type="file" accept="image/*" id="image-upload" />
+  <canvas id="output"></canvas>
+
+  <script>
+    const detectorConfig = {modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER};
+    let detector;
+
+    async function loadModel() {
+      detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
+      console.log("Pose Detection model loaded.");
+    }
+
+    async function detectPose(image) {
+      const poses = await detector.estimatePoses(image);
+      drawResults(image, poses);
+    }
+
+    function drawResults(image, poses) {
+      const canvas = document.getElementById("output");
+      const ctx = canvas.getContext("2d");
+      canvas.width = image.width;
+      canvas.height = image.height;
+
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+
+      poses.forEach(pose => {
+        pose.keypoints.forEach(keypoint => {
+          if (keypoint.score > 0.1) { 
+            ctx.beginPath();
+            ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = "red";
+            ctx.fill();
+          }
+        });
+      });
+    }
+
+    document.getElementById("image-upload").addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      img.onload = async () => {
+        await detectPose(img);
+      };
+    });
+
+    loadModel();
+  </script>
+</body>
+</html>

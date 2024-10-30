@@ -1,0 +1,1 @@
+npm install @mediapipe/face_mesh
