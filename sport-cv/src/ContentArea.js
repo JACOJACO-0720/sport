@@ -1,332 +1,147 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box,
   Button,
   Typography,
   TextField,
-  Slider,
+  CircularProgress,
+  Paper,
   ImageList,
   ImageListItem,
-  LinearProgress,
-} from "@mui/material";
+  Container,
+} from '@mui/material';
 import * as tf from '@tensorflow/tfjs';
 import * as poseDetection from '@tensorflow-models/pose-detection';
+import { LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-function ContentArea() {
-  const [inputType, setInputType] = useState("image");
+function computeAngle(p1, p2, p3) {
+  const radians = Math.atan2(p3.y - p2.y, p3.x - p2.x) - Math.atan2(p1.y - p2.y, p1.x - p2.x);
+  let angle = Math.abs((radians * 180) / Math.PI);
+  if (angle > 180) angle = 360 - angle;
+  return angle;
+}
+
+export default function ContentArea() {
   const [file, setFile] = useState(null);
-  const [videoDuration, setVideoDuration] = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [frames, setFrames] = useState([]);
-  const [selectedDemo, setSelectedDemo] = useState(null);
-  const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [detector, setDetector] = useState(null);
-  const [keypoints, setKeypoints] = useState(null);
-  const [resultImage, setResultImage] = useState(null);
+  const [chartData, setChartData] = useState([]);
+  const [landingFrames, setLandingFrames] = useState([]);
 
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const canvasRef = useRef(document.createElement('canvas'));
 
-  // 初始化姿态检测器
-  useEffect(() => {
-    async function initDetector() {
-      // 设置后端为 'webgl'，并等待准备就绪
-      await tf.setBackend('webgl');
-      await tf.ready();
+  useEffect(() => { tf.setBackend('webgl').then(() => tf.ready()); }, []);
 
-      const detectorConfig = {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
-      };
-      const detector = await poseDetection.createDetector(
-        poseDetection.SupportedModels.MoveNet,
-        detectorConfig
-      );
-      setDetector(detector);
-    }
-    initDetector();
-  }, []);
-
-  const handleToggleInput = () => {
-    setInputType(inputType === "image" ? "video" : "image");
-    setFile(null);
-    setFrames([]);
-    setSelectedDemo(null);
-    setResultImage(null);
-    setKeypoints(null);
-    setProgress(0);
+  const handleFileChange = (e) => {
+    setFile(URL.createObjectURL(e.target.files[0]));
+    setChartData([]);
+    setLandingFrames([]);
   };
 
-  const handleFileChange = (event) => {
-    setFile(URL.createObjectURL(event.target.files[0]));
-    setFrames([]);
-    setSelectedDemo(null);
-    setResultImage(null);
-    setKeypoints(null);
-    setProgress(0);
-  };
-
-  const handleVideoLoaded = () => {
-    const duration = videoRef.current.duration;
-    if (duration < 1) {
-      alert("上传的视频必须要大于一秒");
-      setFile(null);
-    } else {
-      setVideoDuration(duration);
-    }
-  };
-
-  const handleSliderChange = (event, newValue) => {
-    setStartTime(newValue);
-    extractFrames(newValue);
-  };
-
-  const extractFrames = (start) => {
-    const times = [start, start + 0.5, start + 1];
-    const newFrames = [];
-
-    times.forEach((time) => {
-      if (time <= videoDuration) {
-        captureFrame(time, (dataUrl) => {
-          newFrames.push(dataUrl);
-          if (newFrames.length === times.length) {
-            setFrames(newFrames);
-          }
-        });
-      }
+  const analyzeVideo = async () => {
+    setLoading(true);
+    const detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+      modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
     });
-  };
 
-  const captureFrame = (time, callback) => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    video.currentTime = time;
+    const ctx = canvas.getContext('2d');
+    const fps = 25;
 
-    video.addEventListener(
-      "seeked",
-      function () {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/png");
-        callback(dataUrl);
-      },
-      { once: true }
+    const positions = [], angles = [], framesImg = [];
+
+    for (let t = 0; t < video.duration; t += 1 / fps) {
+      video.currentTime = t;
+      await new Promise(res => (video.onseeked = res));
+      ctx.drawImage(video, 0, 0, canvas.width = video.videoWidth, canvas.height = video.videoHeight);
+      const imgData = canvas.toDataURL();
+
+      const poses = await detector.estimatePoses(canvas);
+      const keypoints = poses[0]?.keypoints;
+
+      const ankle = keypoints.find(kp => kp.name === 'left_ankle');
+      positions.push({ y: ankle?.y || 0 });
+
+      const hip = keypoints.find(kp => kp.name === 'left_hip');
+      const knee = keypoints.find(kp => kp.name === 'left_knee');
+      const angle = (hip && knee && ankle) ? computeAngle(hip, knee, ankle) : 0;
+      angles.push(angle);
+
+      framesImg.push(imgData);
+    }
+
+    let vel = 0, acc = 0;
+    const accData = positions.map((p, i) => {
+      if (i > 1) { const velPrev = vel; vel = p.y - positions[i - 1].y; acc = vel - velPrev; }
+      return { frame: i, acceleration: Math.abs(acc), angle: angles[i], img: framesImg[i] };
+    });
+
+    const threshold = 15;
+    const landings = accData.filter((p, i, arr) =>
+      i > 0 && i < arr.length - 1 && p.acceleration > threshold &&
+      p.acceleration > arr[i - 1].acceleration && p.acceleration > arr[i + 1].acceleration
     );
-  };
 
-  useEffect(() => {
-    if (file && inputType === "video") {
-      extractFrames(startTime);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file]);
-
-  const handleDemoClick = (demoSrc) => {
-    setSelectedDemo(demoSrc);
-    setFile(demoSrc);
-  };
-
-  const handleSubmit = async () => {
-    setLoading(true);
-    setProgress(0);
-    try {
-      // 第一步：提取骨骼信息
-      setProgress(33);
-      let imageSrc = selectedDemo || file;
-
-      const img = new Image();
-      img.crossOrigin = "anonymous"; // 避免CORS问题
-      img.src = imageSrc;
-      await new Promise((resolve) => {
-        img.onload = resolve;
-      });
-
-      // 运行姿态检测
-      const poses = await detector.estimatePoses(img);
-      setKeypoints(poses[0].keypoints);
-
-      // 提取两个手臂的6个关键点
-      const requiredKeypoints = poses[0].keypoints.filter((keypoint) =>
-        ["left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist"].includes(keypoint.name)
-      );
-
-      // 在图像上绘制关键点
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, img.width, img.height);
-
-      // 绘制关键点
-      ctx.fillStyle = "red";
-      requiredKeypoints.forEach((keypoint) => {
-        if (keypoint.score > 0.3) {
-          ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
-          ctx.fill();
-        }
-      });
-
-      const resultImageSrc = canvas.toDataURL('image/png');
-      setResultImage(resultImageSrc);
-
-      // 更新进度
-      setProgress(66);
-
-      // 假设还有其他处理步骤，可以在这里添加
-
-      // 最终进度
-      setProgress(100);
-    } catch (error) {
-      console.error(error);
-      alert('处理过程中出现错误');
-    }
+    setChartData(accData);
+    setLandingFrames(landings);
     setLoading(false);
   };
 
   return (
-    <Box
-      sx={{
-        flexGrow: 1,
-        padding: 2,
-        backgroundColor: "#fafafa",
-        borderRadius: 1,
-      }}
-    >
-      <Button
-        variant="contained"
-        onClick={handleToggleInput}
-        sx={{ marginBottom: 2 }}
-      >
-        切换到 {inputType === "image" ? "视频" : "图片"} 输入
-      </Button>
+    <Container maxWidth={false} sx={{ bgcolor: '#f7f9fc', height: '100vh', py: 4 }}>
+      <Typography variant="h4" align="center" gutterBottom sx={{ mb: 4, fontWeight: 'bold' }}>
+        Pose & Landing Analysis
+      </Typography>
 
-      <Box sx={{ marginBottom: 3 }}>
-        {inputType === "image" ? (
-          <Box>
-            <Typography>请上传图片：</Typography>
-            <TextField
-              type="file"
-              inputProps={{ accept: "image/*" }}
-              fullWidth
-              variant="outlined"
-              onChange={handleFileChange}
-            />
-            {(file || selectedDemo) && (
-              <Box sx={{ marginTop: 2 }}>
-                <img
-                  src={selectedDemo || file}
-                  alt="预览"
-                  style={{ maxWidth: "100%" }}
-                />
-              </Box>
-            )}
-            {/* 示例图片展示 */}
-            {!file && !selectedDemo && (
-              <Box sx={{ marginTop: 2 }}>
-                <Typography>示例图片：</Typography>
-                <ImageList cols={2}>
-                  <ImageListItem onClick={() => handleDemoClick("/demo0.jpg")}>
-                    <img
-                      src="/demo0.jpg"
-                      alt="Demo 0"
-                      style={{ cursor: "pointer" }}
-                    />
-                  </ImageListItem>
-                  <ImageListItem onClick={() => handleDemoClick("/demo1.jpg")}>
-                    <img
-                      src="/demo1.png"
-                      alt="Demo 1"
-                      style={{ cursor: "pointer" }}
-                    />
-                  </ImageListItem>
-                </ImageList>
-              </Box>
-            )}
-          </Box>
-        ) : (
-          <Box>
-            <Typography>请上传视频：</Typography>
-            <TextField
-              type="file"
-              inputProps={{ accept: "video/*" }}
-              fullWidth
-              variant="outlined"
-              onChange={handleFileChange}
-            />
-            {file && (
-              <Box sx={{ marginTop: 2 }}>
-                <video
-                  src={file}
-                  ref={videoRef}
-                  controls
-                  onLoadedMetadata={handleVideoLoaded}
-                  style={{ maxWidth: "100%" }}
-                />
-                {videoDuration > 0 && (
-                  <Box sx={{ marginTop: 2 }}>
-                    <Typography>选择1秒视频片段的起始时间（秒）：</Typography>
-                    <Slider
-                      value={startTime}
-                      min={0}
-                      max={Math.max(0, videoDuration - 1)}
-                      step={0.1}
-                      onChange={handleSliderChange}
-                      valueLabelDisplay="auto"
-                    />
-                  </Box>
-                )}
-                <canvas ref={canvasRef} style={{ display: "none" }} />
-                {frames.length > 0 && (
-                  <Box sx={{ marginTop: 2 }}>
-                    <Typography>截取的图片帧：</Typography>
-                    <ImageList cols={3}>
-                      {frames.map((frame, index) => (
-                        <ImageListItem key={index}>
-                          <img src={frame} alt={`Frame ${index}`} />
-                        </ImageListItem>
-                      ))}
-                    </ImageList>
-                  </Box>
-                )}
-              </Box>
-            )}
-          </Box>
+      <Paper sx={{ p: 4, mb: 4, boxShadow: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Upload Your Video
+        </Typography>
+        <TextField type="file" inputProps={{ accept: 'video/*' }} fullWidth onChange={handleFileChange} />
+        {file && (
+          <video ref={videoRef} src={file} controls style={{ width: '100%', marginTop: '16px', borderRadius: 4 }} />
         )}
-      </Box>
-
-      {/* 提交按钮 */}
-      <Box sx={{ marginTop: 2 }}>
         <Button
           variant="contained"
-          color="primary"
-          onClick={handleSubmit}
-          disabled={(!file && !selectedDemo) || loading}
+          onClick={analyzeVideo}
+          disabled={!file || loading}
+          sx={{ mt: 3, px: 4, py: 1.5 }}
         >
-          {loading ? "处理中..." : "提交"}
+          {loading ? <CircularProgress size={24} /> : 'Start Analysis'}
         </Button>
-      </Box>
+      </Paper>
 
-      {/* 进度条 */}
-      {loading && (
-        <Box sx={{ width: '100%', marginTop: 2 }}>
-          <LinearProgress variant="determinate" value={progress} />
-          <Typography variant="body2" color="textSecondary">{`进度：${Math.round(progress)}%`}</Typography>
-        </Box>
+      {chartData.length > 0 && (
+        <Paper sx={{ p: 4, boxShadow: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Acceleration Chart
+          </Typography>
+          <ResponsiveContainer height={300}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="frame" />
+              <YAxis />
+              <Tooltip />
+              <Line type="monotone" dataKey="acceleration" stroke="#8884d8" strokeWidth={2} />
+            </LineChart>
+          </ResponsiveContainer>
+
+          <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+            Detected Landing Frames
+          </Typography>
+          <ImageList cols={4} gap={12}>
+            {landingFrames.map((f, idx) => (
+              <ImageListItem key={idx}>
+                <img src={f.img} alt={`Frame ${f.frame}`} style={{ borderRadius: 4 }} />
+                <Typography variant="body2" align="center">
+                  Frame {f.frame} - Angle: {f.angle.toFixed(1)}°
+                </Typography>
+              </ImageListItem>
+            ))}
+          </ImageList>
+        </Paper>
       )}
-
-      <Box sx={{ marginTop: 4 }}>
-        <Typography variant="h6">分析结果</Typography>
-        {resultImage && (
-          <Box sx={{ marginTop: 2 }}>
-            <img src={resultImage} alt="结果图像" style={{ maxWidth: "100%" }} />
-          </Box>
-        )}
-      </Box>
-    </Box>
+    </Container>
   );
 }
-
-export default ContentArea;

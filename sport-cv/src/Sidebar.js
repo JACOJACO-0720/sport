@@ -17,7 +17,7 @@ function Sidebar() {
       </Typography>
       <List>
         <ListItem button>
-          <ListItemText primary="篮球" />
+          <ListItemText primary="basketball" />
         </ListItem>
       </List>
     </Box>

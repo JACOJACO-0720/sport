@@ -7,9 +7,6 @@ function App() {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <CssBaseline />
-      <Typography variant="h4" component="h1" sx={{ marginTop: 4 }}>
-        智感悦动 - 运动姿态识别
-      </Typography>
       <Box sx={{ display: "flex", width: "80%", marginTop: 4 }}>
         <Sidebar />
         <ContentArea />
